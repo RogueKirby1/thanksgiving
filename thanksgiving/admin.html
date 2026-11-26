@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>make a link</title>
+<style>
+:root{--bg:#2a0e12;--panel:#3a1418;--ink:#ffe0a8;--dim:#c89060;--gold:#f0b040;--line:#6a2a20}
+@media (prefers-color-scheme:light){:root{--bg:#fff4e0;--panel:#ffe8c4;--ink:#3a1418;--dim:#8a5a3a;--gold:#b8501a;--line:#d8b078}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Georgia,serif;padding:24px 16px 60px}
+main{max-width:640px;margin:auto}
+h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:28px 0 8px}
+p{margin:4px 0 12px;color:var(--dim)}
+label{display:block;margin:12px 0 4px}
+input[type=text],input[type=file],textarea{width:100%;padding:10px;background:var(--panel);color:var(--ink);border:2px solid var(--line);font:inherit}
+textarea{font:13px/1.4 monospace;height:160px}
+button,.btn{display:inline-block;background:var(--gold);color:#2a0e12;border:0;padding:9px 14px;font:inherit;cursor:pointer;text-decoration:none;margin:6px 6px 0 0}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.out{background:var(--panel);border:2px solid var(--line);padding:14px;margin-top:14px}
+.out code{display:block;word-break:break-all;margin:4px 0 8px;font:13px monospace;color:var(--ink)}
+.prev{display:flex;gap:14px;align-items:flex-start;margin-top:8px}.prev img{max-width:55%;max-height:220px;border:3px solid #fff}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:8px 0}
+.row span{overflow:hidden;text-overflow:ellipsis}.row small{color:var(--dim);display:block}
+</style>
+</head>
+<body>
+<main>
+<h1>make a link</h1>
+<p>One link per person. Each link opens the same game with that person's name and note.</p>
+
+<label for="base">Your site address (saved after the first time)</label>
+<input type="text" id="base" placeholder="https://yourname.github.io/thanksgiving/">
+
+<label for="name">Their name</label>
+<input type="text" id="name" placeholder="Grandma">
+
+<label for="file">Photo of the handwritten note</label>
+<input type="file" id="file" accept="image/*">
+
+<button id="make">Make link</button>
+
+<div class="out" id="out" hidden>
+  <strong>Check this is right before sending:</strong>
+  <div class="prev"><div><div id="pn" style="font-size:20px"></div><p>will see this note</p></div><img id="pi" alt="note preview"></div>
+
+  <h2>1. Save the image</h2>
+  <p>Download it, then put it in your <b>notes</b> folder:</p>
+  <a class="btn" id="dl">Download as <span id="fn"></span></a>
+
+  <h2>2. Update people.json</h2>
+  <p>Replace everything in people.json with this (it includes everyone so far):</p>
+  <textarea id="json" readonly></textarea>
+  <button id="cj">Copy</button><button id="sj">Download people.json</button>
+
+  <h2>3. Send this link</h2>
+  <code id="link"></code>
+  <button id="cl">Copy link</button><a class="btn" id="op" target="_blank" rel="noopener">Open it</a>
+  <p>It only works after the image and people.json are published.</p>
+</div>
+
+<h2>Everyone so far</h2>
+<div id="list"><p>Nothing yet.</p></div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+let data={};
+const base=$('base');
+try{base.value=localStorage.getItem('base')||''}catch(e){}
+if(!base.value&&location.protocol.startsWith('http'))base.value=location.href.replace(/admin\.html.*$/,'');
+base.onchange=()=>{try{localStorage.setItem('base',base.value)}catch(e){}render()};
+const url=code=>{let b=base.value.trim();if(b&&!b.endsWith('/'))b+='/';return b+'?to='+code};
+const rand=n=>Array.from({length:n},()=>'abcdefghjkmnpqrstuvwxyz23456789'[Math.random()*31|0]).join('');
+const copy=(t,btn)=>navigator.clipboard.writeText(t).then(()=>{const o=btn.textContent;btn.textContent='Copied';setTimeout(()=>btn.textContent=o,1200)});
+
+fetch('people.json',{cache:'no-store'}).then(r=>r.json()).then(d=>{data=d;render()}).catch(()=>{});
+
+function render(){
+  const k=Object.keys(data);$('list').innerHTML=k.length?'':'<p>Nothing yet.</p>';
+  k.forEach(code=>{const r=document.createElement('div');r.className='row';
+    r.innerHTML='<span></span>';r.firstChild.textContent=data[code].name;
+    const sm=document.createElement('small');sm.textContent=code+' · '+data[code].note;r.firstChild.append(sm);
+    const b=document.createElement('button');b.textContent='Copy link';b.onclick=()=>copy(url(code),b);r.append(b);$('list').append(r)})}
+
+$('make').onclick=()=>{
+  const name=$('name').value.trim(),file=$('file').files[0];
+  if(!name||!file){alert('Add a name and choose the note image first.');return}
+  const slug=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'friend';
+  const code=slug+'-'+rand(4),ext=(file.name.split('.').pop()||'png').toLowerCase(),fn='n-'+rand(8)+'.'+ext;
+  data[code]={name,note:'notes/'+fn};
+  const obj=URL.createObjectURL(file);
+  $('pn').textContent=name;$('pi').src=obj;$('fn').textContent=fn;
+  $('dl').href=obj;$('dl').download=fn;
+  const js=JSON.stringify(data,null,2);$('json').value=js;
+  $('link').textContent=url(code);$('op').href=url(code);
+  $('cj').onclick=e=>copy(js,e.target);$('cl').onclick=e=>copy(url(code),e.target);
+  $('sj').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([js],{type:'application/json'}));a.download='people.json';a.click()};
+  $('out').hidden=false;$('out').scrollIntoView({behavior:'smooth'});render();
+  $('name').value='';$('file').value=''};
+</script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>a leaf for you</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:#1a0b0e;overflow:hidden;font-family:'Press Start 2P',monospace,sans-serif}
+#wrap{position:relative;height:100%;display:flex;align-items:center;justify-content:center}
+#game{image-rendering:pixelated;width:min(100vw,160vh);aspect-ratio:8/5;cursor:crosshair;touch-action:manipulation}
+#hud{position:absolute;top:10px;left:0;right:0;text-align:center;font-size:10px;line-height:1.6;color:#ffe0a8;text-shadow:2px 2px #3a1418;pointer-events:none;padding:0 12px}
+.ov{position:fixed;inset:0;background:rgba(26,8,12,.72);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+.box{background:#3a1418;border:4px solid #f0b040;box-shadow:0 0 0 4px #1a0b0e;color:#ffe0a8;text-align:center;padding:20px;max-width:min(92vw,420px);font-size:10px;line-height:2}
+#big{image-rendering:pixelated;width:168px;height:136px;animation:pop .6s steps(6) both}
+@keyframes pop{from{transform:scale(.1) rotate(-25deg)}to{transform:none}}
+button{font:inherit;font-size:10px;background:#f0b040;color:#3a1418;border:0;padding:10px 14px;margin:6px 6px 0;cursor:pointer;box-shadow:0 4px #a8661c}
+button:active{transform:translateY(3px);box-shadow:0 1px #a8661c}
+button:focus-visible{outline:3px solid #fff}
+#paper{max-width:min(92vw,680px);text-align:center;background:#3a1418;border:4px solid #f0b040;padding:14px;color:#ffe0a8;font-size:10px;line-height:1.8}
+#paper img{display:block;max-width:100%;max-height:68vh;margin:10px auto 6px;background:#fff;border:4px solid #fff4d6;animation:fade .8s steps(4) both}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){#big,#paper img{animation:none}}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="320" height="200"></canvas>
+  <div id="hud">click a falling leaf</div>
+</div>
+
+<div class="ov" id="ov" hidden>
+  <div class="box">
+    <canvas id="big" width="21" height="17"></canvas>
+    <p>wait... something is stuck to the back of this leaf.<br>want to read it?</p>
+    <button id="yes">yes</button><button id="no">not yet</button>
+  </div>
+</div>
+
+<div class="ov" id="noteov" hidden>
+  <div id="paper">
+    <div id="to"></div>
+    <img id="note" alt="your note">
+    <button id="close">close</button>
+  </div>
+</div>
+
+<script>
+const W=320,H=200,c=document.getElementById('game'),g=c.getContext('2d');
+const mk=()=>{const e=document.createElement('canvas');e.width=W;e.height=H;return e};
+const sky=mk(),fg=mk(),s=sky.getContext('2d'),f=fg.getContext('2d');
+const px=(x,y,w,h,col,ctx=g)=>{ctx.fillStyle=col;ctx.fillRect(x,y,w,h)};
+let seed=7;const rnd=()=>(seed=seed*16807%2147483647)/2147483647;
+
+/* ---------- static scene ---------- */
+const SK=['#2b1236','#45194a','#6e2552','#a03a5a','#d05c5c','#ec844c','#f8ae5c','#fcd484'];
+SK.forEach((col,i)=>px(0,i*13,W,13,col,s));
+for(let i=1;i<8;i++)for(let x=0;x<W;x+=2){px(x,i*13,1,1,SK[i-1],s);px(x+1,i*13+1,1,1,SK[i-1],s)}
+for(let i=0;i<14;i++)px(R(0,W),R(0,34),1,1,'#ffe8c0',s);
+function R(a,b){return a+Math.floor(rnd()*(b-a))}
+for(let dy=-15;dy<=15;dy++){const w=Math.floor(Math.sqrt(225-dy*dy));px(205-w,98+dy,2*w+1,1,'#ffe8a8',s)}
+
+const hh=x=>92+Math.round(6*Math.sin(x/37)+4*Math.sin(x/13+1));
+const h2=x=>99+Math.round(3*Math.sin(x/21+2));
+for(let x=0;x<W;x++){px(x,hh(x),1,104-hh(x),'#5a2146',f);px(x,h2(x),1,104-h2(x),'#3e1838',f);
+  if(rnd()<.4)px(x,hh(x)-2,1,2,'#4a1c3c',f);
+}
+const WR=['#e07a54','#c85e58','#a24660','#7a3060','#552258','#3a1848'];
+// water bands (drawn under reflected hills with dithering)
+const wat=mk(),wc=wat.getContext('2d');
+for(let y=104;y<178;y++){const t=(y-104)/74*6,i=Math.min(5,Math.floor(t)),fr=t-i;
+  for(let x=0;x<W;x++){const up=(fr<.25&&i>0&&(x+y)%2===0)?i-1:i;px(x,y,1,1,WR[up],wc)}}
+f.drawImage(wat,0,0);
+for(let x=0;x<W;x++)for(let d=0;d<104-hh(x);d++)px(x,104+d,1,1,d>6?'#4a2048':'#7a3050',f);
+
+for(let x=0;x<W;x++){const ey=176+Math.round(2*Math.sin(x/9)+rnd()*2);px(x,ey,1,200-ey,'#3a1416',f)}
+px(0,186,W,14,'#2a0e12',f);px(0,194,W,6,'#1e0a0e',f);
+for(let i=0;i<40;i++)px(R(0,W),R(172,178),1,R(2,4),'#5a2a10',f);
+
+const LP=['#6a1a12','#8e2812','#b8401a','#d8601c','#f08a20','#f8b030','#fcd24a'];
+for(let i=0;i<170;i++)px(R(0,W),R(181,199),R(1,3),1,LP[R(1,7)],f);
+
+const fol=[];
+const cl6=k=>LP[Math.max(0,Math.min(6,k))];
+function leaf(x,y,i,sz){
+  if(sz===2){px(x+1,y,3,1,cl6(i+1),f);px(x,y+1,5,2,cl6(i),f);px(x+2,y+2,1,1,cl6(i-1),f);px(x+1,y+3,3,1,cl6(i-2),f)}
+  else if(sz===1){px(x+1,y,2,1,cl6(i+1),f);px(x,y+1,4,1,cl6(i),f);px(x+1,y+2,2,1,cl6(i-2),f)}
+  else{px(x+1,y,1,1,cl6(i+1),f);px(x,y+1,3,1,cl6(i),f);px(x+1,y+2,1,1,cl6(i-2),f)}}
+const AREA=[5,8,16];
+// a clump of chunky leaves, lit from top-left, layered back to front
+function clump(cx,cy,rx,ry,sz,cov,shift){
+  const L=[],N=Math.round(Math.PI*rx*ry*cov/AREA[sz]);
+  for(let k=0;k<N;k++){const a=rnd()*6.283,r=Math.sqrt(rnd()),dx=Math.cos(a)*r*rx,dy=Math.sin(a)*r*ry;
+    L.push({x:Math.round(cx+dx),y:Math.round(cy+dy),dx:dx/rx,dy:dy/ry})}
+  L.sort((p,q)=>p.y-q.y);
+  L.forEach(p=>{if(p.x<0||p.x>W-5||p.y<0||p.y>H-5)return;
+    let i=Math.round(3.4-p.dy*1.7-p.dx*.9+(rnd()-.5)*1.8)-shift;i=Math.max(0,Math.min(6,i));
+    leaf(p.x,p.y,i,sz);if(!shift)fol.push({x:p.x+1,y:p.y+1,b:i,t:0})})}
+const front=[];
+function br(x,y,a,len,w,d,curl=0){
+  for(let i=0;i<len;i++){
+    a+=(rnd()-.5)*.2+curl;x+=Math.cos(a);y+=Math.sin(a);
+    const ww=Math.max(1,Math.round(w*(1-i/len*.65)));
+    px(Math.round(x-ww/2),Math.round(y-ww/2),ww,ww,'#1c0a0a',f);
+    if(ww>2)px(Math.round(x-ww/2),Math.round(y-ww/2),1,1,'#4a1c14',f);
+    if(d>0&&i>len*.25&&rnd()<.08)br(x,y,a+(rnd()<.5?-1:1)*(.5+rnd()*.6),len*.6,w*.55,d-1,0);
+    if(d<=1&&i>len*.4&&rnd()<.05)front.push([x,y,5+R(0,3),4+R(0,2)])}
+  front.push([x,y,9+R(0,5),7+R(0,3)])}
+
+// ---- big tree on the right: leaning, forked, flared trunk
+const bz=(t,p)=>{const u=1-t;return[0,1].map(k=>u*u*u*p[0][k]+3*u*u*t*p[1][k]+3*u*t*t*p[2][k]+t*t*t*p[3][k])};
+clump(268,38,40,22,1,1.5,2);clump(236,44,24,14,1,1.5,2);clump(302,42,26,18,1,1.5,2);clump(212,62,14,10,1,1.5,2);
+const TR=[[272,186],[258,150],[286,114],[266,70]];
+for(let i=0;i<=260;i++){const t=i/260,[x,y]=bz(t,TR),w=Math.round(19-8*t+Math.max(0,7-t*40)+Math.sin(t*20)*1);
+  px(Math.round(x-w/2),Math.round(y),w,2,'#1c0a0a',f);px(Math.round(x-w/2),Math.round(y),2,2,'#4a1c14',f);
+  if(rnd()<.5)px(Math.round(x-w/2)+R(3,w),Math.round(y),1,2,'#0e0404',f)}
+
+br(267,72,-2.25,70,8,3,0);br(268,74,-1.0,58,7,3);br(266,72,-1.6,42,6,2);br(269,104,-2.9,70,6,3,-.002);br(270,120,-.5,34,4,1);
+// ---- top-left foreground branches
+clump(18,14,36,22,2,1.4,2);clump(62,16,28,15,2,1.4,2);clump(96,20,18,12,2,1.4,2);
+br(-2,9,.28,70,8,3,.002);br(-2,44,.22,48,6,3,.004);
+front.sort((p,q)=>p[1]-q[1]);
+front.forEach(([x,y,rx,ry])=>clump(Math.round(x),Math.round(y),rx,ry,x<130?2:(rnd()<.35?0:1),1.1,0));
+
+/* ---------- animated bits ---------- */
+const clouds=[{x:30,y:30,w:34},{x:140,y:20,w:46},{x:230,y:48,w:30},{x:90,y:52,w:26}];
+function cloud(o){const x=Math.round(o.x),w=o.w;
+  px(x,o.y,w,4,'#c8587a');px(x+3,o.y-3,w-8,3,'#c8587a');px(x+(w*.3|0),o.y-6,w*.35|0,3,'#c8587a');
+  px(x+3,o.y-3,w-8,1,'#ee8a90');px(x+(w*.3|0),o.y-6,w*.35|0,1,'#ee8a90')}
+
+const ducks=[{x:130,y:132,d:1,t:0},{x:168,y:146,d:-1,t:2}];
+function duck(o){const b=Math.floor(n/3+o.t)%2,x=Math.round(o.x),y=o.y+b,d=o.d;
+  const P=(dx,dy,w,h,col)=>px(d>0?x+dx:x-dx-w+1,y+dy,w,h,col);
+  P(-2,6,14,1,'#f8b878');P(1,7,10,1,'#e07a54');
+  P(0,2,8,4,'#9a6232');P(1,5,6,1,'#e8d0a0');P(2,3,4,1,'#6a4020');P(-1,1,2,2,'#5a3a20');
+  P(6,-1,4,4,'#2a7a4a');P(6,3,1,1,'#fff');P(10,1,3,1,'#f2b020');P(8,0,1,1,'#fff')}
+
+const SP=[[".111.","11111","11211",".111.","..2.."],["..11.",".111.","11211",".11..","2...."],["..1..",".121.",".121.",".121.","..1.."]];
+const LC=['#f8b030','#f08a20','#d8601c','#c8401c','#fcd24a','#b03018'];
+let leaves=[],n=0;
+function dl(l){const X=Math.round(l.x),Y=Math.round(l.y);
+  if(l.y>=l.land){px(X-3,Y,6,2,l.col);px(X-4,Y+2,8,1,'#f8b878');return}
+  const sp=SP[l.fr];
+  for(const sh of [1,0])for(let j=0;j<5;j++)for(let i=0;i<5;i++){const ch=sp[j][i];if(ch!=='.')px(X+i-2+sh,Y+j-2+sh,1,1,sh?'#2a0c0c':ch==='1'?l.col:'#5a1a0a')}}
+function upd(){
+  if(leaves.length<26&&Math.random()<.8){const p=fol[Math.random()*fol.length|0];
+    leaves.push({x:p.x,y:p.y,ph:Math.random()*6,fr:0,col:LC[Math.random()*6|0],land:112+(Math.random()*60|0),life:40})}
+  leaves.forEach(l=>{if(l.y<l.land){l.y+=1.5+Math.random()*1.5;l.x+=Math.sin(l.ph)*2+.6;l.ph+=.7}else{l.life--;l.x+=.3}l.fr=(l.fr+1)%3});
+  leaves=leaves.filter(l=>l.life>0&&l.x<W+6)}
+
+function frame(){n++;upd();
+  for(let i=0;i<12;i++){const p=fol[Math.random()*fol.length|0];p.t^=1;px(p.x,p.y,1,1,LP[Math.min(6,p.b+p.t)],f)}
+  g.drawImage(sky,0,0);
+  clouds.forEach(o=>{o.x+=1;if(o.x>W+4)o.x=-o.w-4;cloud(o)});
+  g.drawImage(fg,0,0);
+  for(let i=0;i<14;i++){const w=14-i;px(205+R2(-8,8)-(w>>1),106+i*5,w,1,'#ffd88a')}
+  for(let i=0;i<6;i++)px(R2(0,W),R2(110,176),2,1,'#f8b878');
+  ducks.forEach(o=>{o.x+=o.d*.25;if(o.x>205||o.x<105)o.d=-o.d;duck(o)});
+  leaves.forEach(dl)}
+function R2(a,b){return a+Math.floor(Math.random()*(b-a))}
+for(let i=0;i<40;i++)upd();
+frame();setInterval(frame,200); // 5 fps
+
+/* ---------- who is this for? ---------- */
+const code=new URLSearchParams(location.search).get('to');
+let person=null,caught=0,open=false;
+const $=id=>document.getElementById(id),hud=$('hud');
+fetch('people.json',{cache:'no-store'}).then(r=>r.json()).then(d=>{
+  person=d[code]||null;
+  if(person)new Image().src=person.note; else hud.textContent='this link looks wrong. ask for a new one.';
+}).catch(()=>{hud.textContent='could not load the note. try again in a moment.'});
+
+/* ---------- clicking leaves ---------- */
+const pos=e=>{const r=c.getBoundingClientRect();return[(e.clientX-r.left)/r.width*W,(e.clientY-r.top)/r.height*H]};
+const near=([x,y])=>{let b=null,bd=100;leaves.forEach(l=>{const d=Math.hypot(l.x-x,l.y-y);if(d<bd){bd=d;b=l}});return b};
+c.addEventListener('pointermove',e=>{c.style.cursor=near(pos(e))?'pointer':'crosshair'});
+c.addEventListener('pointerdown',e=>{
+  if(open||!person)return;const l=near(pos(e));if(!l)return;
+  leaves=leaves.filter(o=>o!==l);caught++;open=true;
+  hud.textContent='leaves caught: '+caught;
+  bigLeaf(l.col);$('ov').hidden=false;$('yes').focus()});
+
+function bigLeaf(col){const b=$('big'),x=b.getContext('2d');x.clearRect(0,0,21,17);
+  const p=(X,Y,w,h,cl)=>{x.fillStyle=cl;x.fillRect(X,Y,w,h)};
+  p(12,3,8,11,'#fff4d6');p(19,3,1,11,'#c9a66b');for(let y=5;y<13;y+=2)p(14,y,4,1,'#b09060');
+  for(let y=1;y<=14;y++){const hw=Math.round(6.5*Math.sin(Math.PI*(y-.5)/14));if(hw<1)continue;
+    p(8-hw,y,2*hw+1,1,col);p(8-hw,y,1,1,'#7a2a10');p(8+hw,y,1,1,'#7a2a10')}
+  p(8,3,1,12,'#7a2a10');for(let y=5;y<=11;y+=2){p(8-(y-3>>1),y,y-3>>1,1,'#9a3a14');p(9,y,y-3>>1,1,'#9a3a14')}
+  p(8,15,1,2,'#5a1a0a');p(11,4,4,2,'#e8d070')}
+
+$('no').onclick=()=>{$('ov').hidden=true;open=false};
+$('yes').onclick=()=>{$('ov').hidden=true;$('to').textContent='for '+person.name;$('note').src=person.note;$('noteov').hidden=false;$('close').focus()};
+$('close').onclick=()=>{$('noteov').hidden=true;open=false;hud.textContent='happy thanksgiving, '+person.name};
+</script>
+</body>
+</html>
